@@ -101,7 +101,10 @@ func HorizontalConcatPNG(name string, paths ...string) (err error) {
 		dc.DrawImage(image, beforeX, 0)
 		beforeX = image.Bounds().Size().X
 	}
-	dc.SavePNG(name)
+
+	if err = dc.SavePNG(name); err != nil {
+		return errors.New("save concat png fail: " + err.Error())
+	}
 
 	return
 }
@@ -137,7 +140,10 @@ func VerticalConcatPNG(name string, paths ...string) (err error) {
 		dc.DrawImage(image, 0, beforeY)
 		beforeY = image.Bounds().Size().Y
 	}
-	dc.SavePNG(name)
+
+	if err = dc.SavePNG(name); err != nil {
+		return errors.New("save concat png fail: " + err.Error())
+	}
 
 	return
 }
