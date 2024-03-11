@@ -1,4 +1,4 @@
-package writer
+package producer
 
 import (
 	"context"

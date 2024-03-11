@@ -18,8 +18,8 @@ func NewGraphics() *Graphics {
 }
 
 // 최초 배경 이미지 생성 및 설정
-// @param imageArea ImageArea(strct) 배경 이미지 가로 세로 픽셀 수
-// @param color Color(struct) 배경 이미지 색
+// @param imageArea ImageArea(strct): 배경 이미지 가로 세로 픽셀 수
+// @param color Color(struct): 배경 이미지 색
 func (g *Graphics) Open(imageArea ImageArea, color Color) (err error) {
 	if !imageArea.isInvalid() {
 		return errors.New("graphic open fail: width or height is invalid")
@@ -40,8 +40,8 @@ func (g *Graphics) Close() {
 }
 
 // 텍스트 설정
-// @param config TextConfig(strct) 텍스트 설정 값
-// @param text string 텍스트 내용
+// @param config TextConfig(strct): 텍스트 설정 값
+// @param text string: 텍스트 내용
 func (g *Graphics) WriteText(config TextConfig, text string) (err error) {
 	g.ptr.SetRGB(config.Color.Red, config.Color.Green, config.Color.Blue)
 	if err = g.ptr.LoadFontFace(string(config.Font), float64(config.Size)); err != nil {
@@ -65,14 +65,14 @@ func (g *Graphics) SetBackgroundColor(color Color) {
 }
 
 // 이미지 저장
-// @param name string 저장 이미지 이름(확장자 제외)
+// @param name string: 저장 이미지 이름(확장자 제외)
 func (g *Graphics) SavePNG(name string) (err error) {
 	return g.ptr.SavePNG(fmt.Sprintf("%s.png", name))
 }
 
 // 이미지 수평 병합
-// @param name string 병합된 파일 이름(확장자 제외)
-// @param paths ...string 수평 평합 대상 이미지 경로들
+// @param name string: 병합된 파일 이름(확장자 제외)
+// @param paths ...string: 수평 평합 대상 이미지 경로들
 func HorizontalConcatPNG(name string, paths ...string) (err error) {
 	if len(paths) < 1 {
 		return errors.New("path is empty")
@@ -110,8 +110,8 @@ func HorizontalConcatPNG(name string, paths ...string) (err error) {
 }
 
 // 이미지 수직 병합
-// @param name string 병합된 파일 이름(확장자 제외)
-// @param paths ...string 수직 평합 대상 이미지 경로들
+// @param name string: 병합된 파일 이름(확장자 제외)
+// @param paths ...string: 수직 평합 대상 이미지 경로들
 func VerticalConcatPNG(name string, paths ...string) (err error) {
 	if len(paths) < 1 {
 		return errors.New("path is empty")
