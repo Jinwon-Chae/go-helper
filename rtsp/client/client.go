@@ -16,21 +16,22 @@ type RTSPClient struct {
 	client        gortsplib.Client
 	url           *base.URL
 	packetHandler func(packets []byte) error
+	flag          bool
 }
 
 func NewRTSPClient() *RTSPClient {
 	return &RTSPClient{}
 }
 
-// @param host string: rtsp 경로
+// @param Host string: rtsp 경로
 // @param handler func(packets []byte) error: 패킷 전달 핸들러 함수
-func (rc *RTSPClient) Open(host string, handler func(packets []byte) error) (err error) {
+func (rc *RTSPClient) Open(Host string, handler func(packets []byte) error) (err error) {
 	if handler == nil {
 		return errors.New("rtsp open fail: packet handler is nil")
 	}
 	rc.packetHandler = handler
 
-	rc.url, err = base.ParseURL(host)
+	rc.url, err = base.ParseURL(Host)
 	if err != nil {
 		return errors.New("rtsp base url parse fail[" + rc.url.Host + "]: " + err.Error())
 	}
@@ -39,16 +40,21 @@ func (rc *RTSPClient) Open(host string, handler func(packets []byte) error) (err
 }
 
 func (rc *RTSPClient) Close() {
+	rc.flag = false
+	rc.client.Pause()
 	rc.client.Close()
+	rc.packetHandler = nil
 }
 
 // @param interval int: 실패 시, 재시도 연결 시도하는 간격(초) [0인 경우 재연결 시도 하지 않음]
 func (rc *RTSPClient) Run(interval int) (err error) {
-	for {
+	rc.flag = true
+
+	for rc.flag {
 		err = rc.connect()
 		if err != nil {
 			if err = rc.reconnect(interval); err != nil {
-				continue
+				return
 			}
 		}
 
@@ -60,9 +66,11 @@ func (rc *RTSPClient) Run(interval int) (err error) {
 
 		err = rc.client.Wait()
 		if err != nil {
-			log.Warn("rtsp wait fail[" + rc.url.Host + "]: " + err.Error())
+			log.Info("rtsp [" + rc.url.Host + "]: " + err.Error())
 		}
 	}
+
+	return
 }
 
 func (rc *RTSPClient) connect() (err error) {
