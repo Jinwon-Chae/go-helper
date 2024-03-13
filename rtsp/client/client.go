@@ -2,7 +2,6 @@ package client
 
 import (
 	"errors"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
@@ -13,10 +12,9 @@ import (
 )
 
 type RTSPClient struct {
-	client        gortsplib.Client
+	client        *gortsplib.Client
 	url           *base.URL
 	packetHandler func(packets []byte) error
-	flag          bool
 }
 
 func NewRTSPClient() *RTSPClient {
@@ -31,6 +29,7 @@ func (rc *RTSPClient) Open(Host string, handler func(packets []byte) error) (err
 	}
 	rc.packetHandler = handler
 
+	rc.client = &gortsplib.Client{}
 	rc.url, err = base.ParseURL(Host)
 	if err != nil {
 		return errors.New("rtsp base url parse fail[" + rc.url.Host + "]: " + err.Error())
@@ -40,41 +39,12 @@ func (rc *RTSPClient) Open(Host string, handler func(packets []byte) error) (err
 }
 
 func (rc *RTSPClient) Close() {
-	rc.flag = false
-	rc.client.Pause()
 	rc.client.Close()
 	rc.packetHandler = nil
 }
 
 // @param interval int: 실패 시, 재시도 연결 시도하는 간격(초) [0인 경우 재연결 시도 하지 않음]
-func (rc *RTSPClient) Run(interval int) (err error) {
-	rc.flag = true
-
-	for rc.flag {
-		err = rc.connect()
-		if err != nil {
-			if err = rc.reconnect(interval); err != nil {
-				return
-			}
-		}
-
-		_, err = rc.client.Play(nil)
-		if err != nil {
-			log.Warn("rtsp play fail[" + rc.url.Host + "]: " + err.Error())
-			continue
-		}
-
-		err = rc.client.Wait()
-		if err != nil {
-			log.Info("rtsp [" + rc.url.Host + "]: " + err.Error())
-		}
-	}
-
-	return
-}
-
-func (rc *RTSPClient) connect() (err error) {
-	rc.client = gortsplib.Client{}
+func (rc *RTSPClient) Run() (err error) {
 
 	err = rc.client.Start(rc.url.Scheme, rc.url.Host)
 	if err != nil {
@@ -123,26 +93,23 @@ func (rc *RTSPClient) connect() (err error) {
 
 		for _, packet := range packets {
 			packet = append([]uint8{0x00, 0x00, 0x00, 0x01}, packet...)
-			rc.packetHandler(packet)
+			if rc.packetHandler != nil {
+				rc.packetHandler(packet)
+			}
 		}
 	})
-	log.Info("rtsp connect success[" + rc.url.Host + "]")
 
-	return
-}
-
-func (rc *RTSPClient) reconnect(i int) (err error) {
-	for {
-		time.Sleep(time.Second * time.Duration(i))
-		err = rc.connect()
-		if err == nil {
-			break
-		} else if i == 0 {
-			return errors.New("rtsp connect fail[" + rc.url.Host + "]")
-		}
-
-		log.Info("try to rtsp reconnection["+rc.url.Host+"]: ", err)
+	_, err = rc.client.Play(nil)
+	if err != nil {
+		log.Warn("rtsp play fail[" + rc.url.Host + "]: " + err.Error())
 	}
+
+	err = rc.client.Wait()
+	if err != nil {
+		log.Info("rtsp [" + rc.url.Host + "]: " + err.Error())
+	}
+
+	rc.Run()
 
 	return
 }
