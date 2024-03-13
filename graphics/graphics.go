@@ -48,7 +48,7 @@ func (g *Graphics) WriteText(config TextConfig, text string) (err error) {
 		return errors.New("write text fail: load font face fail -> " + err.Error())
 	}
 
-	g.ptr.DrawString(text, config.Position.X, config.Position.Y)
+	g.ptr.DrawStringAnchored(text, config.Position.X, config.Position.Y, config.Anchor.X, config.Anchor.Y)
 
 	return
 }

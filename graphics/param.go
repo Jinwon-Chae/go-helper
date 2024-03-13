@@ -49,9 +49,16 @@ type Position struct {
 	Y float64 // 문자 시작 y 좌표
 }
 
+type Anchor struct { // 앵커 포인트
+	X float64
+	Y float64
+}
+
 type TextConfig struct {
 	Color    Color    // 문자열 RGB 비중
 	Font     Font     // 폰트
 	Size     int      // 문자 사이즈
 	Position Position // 문자 시작 좌표
+	Anchor   Anchor   // 앵커포인트
+
 }
