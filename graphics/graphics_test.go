@@ -17,14 +17,14 @@ func TestDrawText(t *testing.T) {
 	assert.Nil(t, err)
 
 	c = Color{Red: 1, Green: 1, Blue: 1}
-	p := Position{X: 0, Y: 20}
+	p := Position{X: 160, Y: 16}
 	config := TextConfig{Color: c, Font: NanumGothicBold, Size: 20, Position: p}
 	text1 := "교통"
 	err = g.WriteText(config, text1)
 	assert.Nil(t, err)
 
 	c = Color{Red: 1, Green: 1, Blue: 0}
-	p = Position{X: 40, Y: 20}
+	p = Position{X: 0, Y: 0}
 	config = TextConfig{Color: c, Font: NanumGothicBold, Size: 20, Position: p}
 	text2 := "고통"
 

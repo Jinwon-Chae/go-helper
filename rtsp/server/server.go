@@ -39,13 +39,8 @@ func (rs *RTSPServer) Open(port int) (err error) {
 func (rs *RTSPServer) Run() (err error) {
 	p := strconv.Itoa(rs.port)
 	rs.s = &gortsplib.Server{
-		Handler:           rs,
-		RTSPAddress:       ":" + p,
-		UDPRTPAddress:     ":8000",
-		UDPRTCPAddress:    ":8001",
-		MulticastIPRange:  "224.1.0.0/16",
-		MulticastRTPPort:  8002,
-		MulticastRTCPPort: 8003,
+		Handler:     rs,
+		RTSPAddress: ":" + p,
 	}
 
 	log.Info("rtsp server is run [", p, "]")

@@ -60,5 +60,4 @@ type TextConfig struct {
 	Size     int      // 문자 사이즈
 	Position Position // 문자 시작 좌표
 	Anchor   Anchor   // 앵커포인트
-
 }
