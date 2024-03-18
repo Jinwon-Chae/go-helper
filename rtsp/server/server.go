@@ -20,20 +20,30 @@ type RTSPServer struct {
 	mutex     sync.Mutex
 	stream    *gortsplib.ServerStream
 	publisher *gortsplib.ServerSession
+	isConn    chan bool
 }
 
 func NewRTSPSever() *RTSPServer {
 	return &RTSPServer{}
 }
 
-// @param port int: rtsp 경로
-func (rs *RTSPServer) Open(port int) (err error) {
+func (rs *RTSPServer) Open(port int, isConn chan bool) (err error) {
 	if port <= 0 || port > 655365 {
 		return errors.New("rtsp server open fail: port is invalid")
 	}
+
+	if isConn == nil {
+		return errors.New("rtsp server open fail: connection check channel is nil")
+	}
+
 	rs.port = port
+	rs.isConn = isConn
 
 	return
+}
+
+func (rs *RTSPServer) Close() {
+	rs.s.Close()
 }
 
 func (rs *RTSPServer) Run() (err error) {
@@ -43,7 +53,6 @@ func (rs *RTSPServer) Run() (err error) {
 		RTSPAddress: ":" + p,
 	}
 
-	log.Info("rtsp server is run [", p, "]")
 	if err = rs.s.StartAndWait(); err != nil {
 		return
 	}
@@ -53,23 +62,18 @@ func (rs *RTSPServer) Run() (err error) {
 
 // called when a connection is opened.
 func (sh *RTSPServer) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
-	log.Info("connection open: ", ctx.Conn.NetConn().LocalAddr().String())
 }
 
 // called when a connection is closed.
 func (sh *RTSPServer) OnConnClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
-	log.Info("connection close: ", ctx.Conn.NetConn().LocalAddr().String())
 }
 
 // called when a session is opened.
 func (sh *RTSPServer) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx) {
-	log.Info("session open: ", ctx.Conn.NetConn().LocalAddr().String())
 }
 
 // called when a session is closed.
 func (sh *RTSPServer) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseCtx) {
-	log.Info("session close: ", ctx.Error.Error())
-
 	sh.mutex.Lock()
 	defer sh.mutex.Unlock()
 
@@ -83,8 +87,6 @@ func (sh *RTSPServer) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseC
 
 // called when receiving a DESCRIBE request.
 func (sh *RTSPServer) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
-	log.Info("describe request: ", ctx.Conn.NetConn().LocalAddr().String())
-
 	sh.mutex.Lock()
 	defer sh.mutex.Unlock()
 
@@ -103,8 +105,6 @@ func (sh *RTSPServer) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*ba
 
 // called when receiving an ANNOUNCE request.
 func (sh *RTSPServer) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
-	log.Info("announce request: ", ctx.Conn.NetConn().LocalAddr().String())
-
 	sh.mutex.Lock()
 	defer sh.mutex.Unlock()
 
@@ -125,8 +125,6 @@ func (sh *RTSPServer) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*ba
 
 // called when receiving a SETUP request.
 func (sh *RTSPServer) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
-	log.Info("setup request: ", ctx.Conn.NetConn().LocalAddr().String())
-
 	// no one is publishing yet
 	if sh.stream == nil {
 		return &base.Response{
@@ -150,13 +148,15 @@ func (sh *RTSPServer) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 
 // called when receiving a RECORD request.
 func (sh *RTSPServer) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
-	log.Info("record request: ", ctx.Conn.NetConn().LocalAddr().String())
-
 	// called when receiving a RTP packet
 	ctx.Session.OnPacketRTPAny(func(medi *description.Media, forma format.Format, pkt *rtp.Packet) {
 		// route the RTP packet to all readers
 		sh.stream.WritePacketRTP(medi, pkt)
 	})
+
+	if sh.isConn != nil {
+		sh.isConn <- true
+	}
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
