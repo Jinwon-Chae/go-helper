@@ -16,20 +16,24 @@ type RTSPClient struct {
 	client        *gortsplib.Client
 	url           *base.URL
 	packetHandler func(packets []byte) error
-	retryCh       chan error
+
+	/* channel */
+	retryCh    chan error
+	connStatus chan bool
 }
 
 func NewRTSPClient() *RTSPClient {
 	return &RTSPClient{
-		retryCh: make(chan error, 2),
+		retryCh:    make(chan error, 2),
+		connStatus: make(chan bool, 1),
 	}
 }
 
-func (rc *RTSPClient) Open(Host string, handler func(packets []byte) error) (err error) {
-	if handler == nil {
+func (rc *RTSPClient) Open(Host string, packetHandler func(packets []byte) error) (err error) {
+	if packetHandler == nil {
 		return errors.New("rtsp open fail: packet handler is nil")
 	}
-	rc.packetHandler = handler
+	rc.packetHandler = packetHandler
 
 	rc.url, err = base.ParseURL(Host)
 	if err != nil {
@@ -51,6 +55,7 @@ func (rc *RTSPClient) Run() {
 	err := rc.client.Start(rc.url.Scheme, rc.url.Host)
 	if err != nil {
 		rc.retryCh <- err
+		rc.connStatus <- false
 		return
 	}
 
@@ -58,6 +63,7 @@ func (rc *RTSPClient) Run() {
 	desc, _, err := rc.client.Describe(rc.url)
 	if err != nil {
 		rc.retryCh <- err
+		rc.connStatus <- false
 		return
 	}
 
@@ -66,6 +72,7 @@ func (rc *RTSPClient) Run() {
 	medi := desc.FindFormat(&forma)
 	if medi == nil {
 		rc.retryCh <- errors.New("can not find h264 format")
+		rc.connStatus <- false
 		return
 	}
 
@@ -73,6 +80,7 @@ func (rc *RTSPClient) Run() {
 	rtpDec, err := forma.CreateDecoder()
 	if err != nil {
 		rc.retryCh <- err
+		rc.connStatus <- false
 		return
 	}
 
@@ -80,6 +88,7 @@ func (rc *RTSPClient) Run() {
 	_, err = rc.client.Setup(desc.BaseURL, medi, 0, 0)
 	if err != nil {
 		rc.retryCh <- err
+		rc.connStatus <- false
 		return
 	}
 
@@ -92,6 +101,7 @@ func (rc *RTSPClient) Run() {
 		if err != nil {
 			if err != rtph264.ErrNonStartingPacketAndNoPrevious && err != rtph264.ErrMorePacketsNeeded {
 				rc.retryCh <- err
+				rc.connStatus <- false
 				return
 			}
 		}
@@ -107,15 +117,23 @@ func (rc *RTSPClient) Run() {
 	_, err = rc.client.Play(nil)
 	if err != nil {
 		rc.retryCh <- err
+		rc.connStatus <- false
 		return
 	}
 
-	// log.Info("rtsp connect success [" + rc.url.Host + "]")
+	/* when connection success */
+	rc.connStatus <- true
+
 	err = rc.client.Wait()
 	if err != nil {
 		rc.retryCh <- err
+		rc.connStatus <- false
 		return
 	}
+}
+
+func (rc *RTSPClient) NotiConnStatus() bool {
+	return <-rc.connStatus
 }
 
 func (rc *RTSPClient) retry() (err error) {
